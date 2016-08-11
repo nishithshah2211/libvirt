@@ -137,7 +137,7 @@ virshCatchDisconnect(virConnectPtr conn,
 /* Main Function which should be used for connecting.
  * This function properly handles keepalive settings. */
 virConnectPtr
-virshConnect(vshControl *ctl, const char *uri, bool readonly)
+virshConnect(vshControl *ctl, const char *uri, bool readonly, bool report)
 {
     virConnectPtr c = NULL;
     int interval = 5; /* Default */
@@ -188,9 +188,10 @@ virshConnect(vshControl *ctl, const char *uri, bool readonly)
     if (interval > 0 &&
         virConnectSetKeepAlive(c, interval, count) != 0) {
         if (keepalive_forced) {
-            vshError(ctl, "%s",
-                     _("Cannot setup keepalive on connection "
-                       "as requested, disconnecting"));
+            if (report)
+                vshError(ctl, "%s",
+                         _("Cannot setup keepalive on connection "
+                           "as requested, disconnecting"));
             virConnectClose(c);
             c = NULL;
             goto cleanup;
@@ -211,7 +212,8 @@ virshConnect(vshControl *ctl, const char *uri, bool readonly)
  *
  */
 static int
-virshReconnect(vshControl *ctl, const char *name, bool readonly, bool force)
+virshReconnect(vshControl *ctl, const char *name, bool readonly, bool force,
+               bool report)
 {
     bool connected = false;
     virshControlPtr priv = ctl->privData;
@@ -223,19 +225,19 @@ virshReconnect(vshControl *ctl, const char *name, bool readonly, bool force)
 
         virConnectUnregisterCloseCallback(priv->conn, virshCatchDisconnect);
         ret = virConnectClose(priv->conn);
-        if (ret < 0)
+        if (ret < 0 && report)
             vshError(ctl, "%s", _("Failed to disconnect from the hypervisor"));
-        else if (ret > 0)
+        else if (ret > 0 && report)
             vshError(ctl, "%s", _("One or more references were leaked after "
                                   "disconnect from the hypervisor"));
     }
 
-    priv->conn = virshConnect(ctl, name ? name : ctl->connname, ro);
+    priv->conn = virshConnect(ctl, name ? name : ctl->connname, ro, report);
 
     if (!priv->conn) {
-        if (disconnected)
+        if (disconnected && report)
             vshError(ctl, "%s", _("Failed to reconnect to the hypervisor"));
-        else
+        else if (report)
             vshError(ctl, "%s", _("failed to connect to the hypervisor"));
         return -1;
     } else {
@@ -245,9 +247,9 @@ virshReconnect(vshControl *ctl, const char *name, bool readonly, bool force)
             priv->readonly = readonly;
         }
         if (virConnectRegisterCloseCallback(priv->conn, virshCatchDisconnect,
-                                            ctl, NULL) < 0)
+                                            ctl, NULL) < 0 && report)
             vshError(ctl, "%s", _("Unable to register disconnect callback"));
-        if (connected && !force)
+        if (connected && !force && report)
             vshError(ctl, "%s", _("Reconnected to the hypervisor"));
     }
     disconnected = 0;
@@ -303,7 +305,7 @@ cmdConnect(vshControl *ctl, const vshCmd *cmd)
     if (vshCommandOptStringReq(ctl, cmd, "name", &name) < 0)
         return false;
 
-    if (virshReconnect(ctl, name, ro, true) < 0)
+    if (virshReconnect(ctl, name, ro, true, true) < 0)
         return false;
 
     return true;
@@ -315,11 +317,12 @@ cmdConnect(vshControl *ctl, const vshCmd *cmd)
  */
 
 static bool
-virshConnectionUsability(vshControl *ctl, virConnectPtr conn)
+virshConnectionUsability(vshControl *ctl, virConnectPtr conn, bool report)
 {
     if (!conn ||
         virConnectIsAlive(conn) == 0) {
-        vshError(ctl, "%s", _("no valid connection"));
+        if (report)
+            vshError(ctl, "%s", _("no valid connection"));
         return false;
     }
 
@@ -332,15 +335,15 @@ virshConnectionUsability(vshControl *ctl, virConnectPtr conn)
 }
 
 static void *
-virshConnectionHandler(vshControl *ctl)
+virshConnectionHandler(vshControl *ctl, bool report)
 {
     virshControlPtr priv = ctl->privData;
 
     if ((!priv->conn || disconnected) &&
-        virshReconnect(ctl, NULL, false, false) < 0)
+        virshReconnect(ctl, NULL, false, false, report) < 0)
         return NULL;
 
-    if (virshConnectionUsability(ctl, priv->conn))
+    if (virshConnectionUsability(ctl, priv->conn, report))
         return priv->conn;
 
     return NULL;
@@ -455,7 +458,7 @@ virshInit(vshControl *ctl)
          * non-default connection, or might be 'help' which needs no
          * connection).
          */
-        if (virshReconnect(ctl, NULL, false, false) < 0) {
+        if (virshReconnect(ctl, NULL, false, false, true) < 0) {
             vshReportError(ctl);
             return false;
         }

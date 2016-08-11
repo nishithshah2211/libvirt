@@ -1305,7 +1305,7 @@ vshCommandRun(vshControl *ctl, const vshCmd *cmd)
             GETTIMEOFDAY(&before);
 
         if ((cmd->def->flags & VSH_CMD_FLAG_NOCONNECT) ||
-            (hooks && hooks->connHandler && hooks->connHandler(ctl))) {
+            (hooks && hooks->connHandler && hooks->connHandler(ctl, true))) {
             ret = cmd->def->handler(ctl, cmd);
         } else {
             /* connection is not usable, return error */

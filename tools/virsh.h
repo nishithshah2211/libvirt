@@ -144,7 +144,8 @@ typedef enum {
     VIRSH_BYMAC  = (1 << 4),
 } virshLookupByFlags;
 
-virConnectPtr virshConnect(vshControl *ctl, const char *uri, bool readonly);
+virConnectPtr virshConnect(vshControl *ctl, const char *uri, bool readonly,
+                           bool report);
 int virshDomainState(vshControl *ctl, virDomainPtr dom, int *reason);
 
 int virshStreamSink(virStreamPtr st, const char *bytes, size_t nbytes,
