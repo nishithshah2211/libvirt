@@ -972,12 +972,9 @@ cmdSrvClientsSet(vshControl *ctl, const vshCmd *cmd)
 }
 
 static void *
-vshAdmConnectionHandler(vshControl *ctl, bool report)
+vshAdmConnectionUsability(vshControl *ctl, bool report)
 {
     vshAdmControlPtr priv = ctl->privData;
-
-    if (!virAdmConnectIsAlive(priv->conn))
-        vshAdmReconnect(ctl, report);
 
     if (!virAdmConnectIsAlive(priv->conn)) {
         if (report)
@@ -986,6 +983,16 @@ vshAdmConnectionHandler(vshControl *ctl, bool report)
     }
 
     return priv->conn;
+}
+static void *
+vshAdmConnectionHandler(vshControl *ctl, bool report)
+{
+    vshAdmControlPtr priv = ctl->privData;
+
+    if (!virAdmConnectIsAlive(priv->conn))
+        vshAdmReconnect(ctl, report);
+
+    return vshAdmConnectionUsability(ctl, report);
 }
 
 /*
@@ -1328,7 +1335,8 @@ static const vshCmdGrp cmdGroups[] = {
 };
 
 static const vshClientHooks hooks = {
-    .connHandler = vshAdmConnectionHandler
+    .connHandler = vshAdmConnectionHandler,
+    .connUsability = vshAdmConnectionUsability,
 };
 
 int

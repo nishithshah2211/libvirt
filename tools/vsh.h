@@ -235,6 +235,7 @@ typedef void *
 
 struct _vshClientHooks {
     vshConnectionHook connHandler;
+    vshConnectionHook connUsability;
 };
 
 struct _vshCmdGrp {

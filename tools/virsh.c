@@ -316,14 +316,16 @@ cmdConnect(vshControl *ctl, const vshCmd *cmd)
  * ---------------
  */
 
-static bool
-virshConnectionUsability(vshControl *ctl, virConnectPtr conn, bool report)
+static void *
+virshConnectionUsability(vshControl *ctl, bool report)
 {
-    if (!conn ||
-        virConnectIsAlive(conn) == 0) {
+    virshControlPtr priv = ctl->privData;
+
+    if (!priv->conn ||
+        virConnectIsAlive(priv->conn) == 0) {
         if (report)
             vshError(ctl, "%s", _("no valid connection"));
-        return false;
+        return NULL;
     }
 
     /* The connection is considered dead only if
@@ -331,7 +333,7 @@ virshConnectionUsability(vshControl *ctl, virConnectPtr conn, bool report)
      */
     vshResetLibvirtError();
 
-    return true;
+    return priv->conn;
 }
 
 static void *
@@ -343,10 +345,7 @@ virshConnectionHandler(vshControl *ctl, bool report)
         virshReconnect(ctl, NULL, false, false, report) < 0)
         return NULL;
 
-    if (virshConnectionUsability(ctl, priv->conn, report))
-        return priv->conn;
-
-    return NULL;
+    return virshConnectionUsability(ctl, report);
 }
 
 /* -----------------
@@ -929,7 +928,8 @@ static const vshCmdGrp cmdGroups[] = {
 };
 
 static const vshClientHooks hooks = {
-    .connHandler = virshConnectionHandler
+    .connHandler = virshConnectionHandler,
+    .connUsability = virshConnectionUsability,
 };
 
 int
