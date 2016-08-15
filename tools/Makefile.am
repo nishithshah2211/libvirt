@@ -63,6 +63,7 @@ EXTRA_DIST = \
 	virt-sanlock-cleanup.in				\
 	libvirt-guests.sysconf				\
 	virt-login-shell.conf				\
+	virsh-completer.c				\
 	virsh-edit.c					\
 	$(PODFILES)					\
 	$(MANINFILES)					\
@@ -189,6 +190,7 @@ virt_login_shell_CFLAGS =					\
 
 virsh_SOURCES =							\
 		virsh.c virsh.h					\
+		virsh-completer.c virsh-completer.h		\
 		virsh-console.c virsh-console.h			\
 		virsh-domain.c virsh-domain.h			\
 		virsh-domain-monitor.c virsh-domain-monitor.h	\
