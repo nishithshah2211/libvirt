@@ -2647,6 +2647,7 @@ vshReadlineParse(const char *text, int state)
     size_t opt_index;
     static bool cmd_exists, opts_filled, opt_exists;
     static bool non_bool_opt_exists, data_complete;
+    const vshClientHooks *hooks = ((vshControl *)autoCompleteOpaque)->hooks;
 
     if (!state) {
         parser.pos = rl_line_buffer;
@@ -2808,10 +2809,27 @@ vshReadlineParse(const char *text, int state)
     }
 
     if (!cmd_exists) {
+        /* Command Completion */
         res = vshReadlineCommandGenerator(sanitized_text, state);
     } else if (opts_filled && !non_bool_opt_exists) {
+        /* Option Completion */
         res = vshReadlineOptionsGenerator(sanitized_text, state, cmd);
     } else if (non_bool_opt_exists && data_complete && opt->completer) {
+
+        /* Check for need of connection */
+        if (!(cmd->flags & VSH_CMD_FLAG_NOCONNECT)) {
+            /* If connection is needed, connection should be pre-existing.
+             * Otherwise, return NULL
+             */
+            if (!(hooks && hooks->connUsability &&
+                  hooks->connUsability((vshControl *)autoCompleteOpaque,
+                                       false)))
+                goto error;
+        }
+
+        /* At this point, if a command requires connection, it is existing.
+         * Call opt->completer
+         */
         if (!completed_list)
             completed_list = opt->completer(autoCompleteOpaque,
                                             opt->completer_flags);
